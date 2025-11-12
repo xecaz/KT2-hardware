@@ -2,17 +2,50 @@ VERIFIED:
 
 COMPONENT                                                 INTERFACE/PIN
 Red1: ESP32S3                                             N/A
+
+------------------------------------------------------------------------------------------------------------
+
 Yellow1-4: TC118S Motor driver
+            U11 is Motor Driver 1 for Servo-1.
+            U13 is Motor Driver 2 for Servo-2.
+            U9  is Motor Driver 3 for Servo-3.
+            U14 is Motor Driver 4 for Servo-4.
+
+Pinout:
+        _________
+M+   1 |         | 8  VCC (Motor power)
+M-   2 |  TC118S | 7  IN1  (Logic input from ESP32)
+GND  3 |         | 6  IN2  (Logic input from ESP32)
+GND  4 |_________| 5  Motor GND support
+
+------------------------------------------------------------------------------------------------------------
+
 Pink1-10: RGB LEDs                                        GPIO 47
+
+------------------------------------------------------------------------------------------------------------
+
 Brown1: SMB buzzer (aka speaker)                          GPIO 38
+
+------------------------------------------------------------------------------------------------------------
+
 Green1: GPIO0,43,44,Ground and 3.3v                       GPIO0, GPIO43 ,GPIO44
+
+------------------------------------------------------------------------------------------------------------
 
 Dark Gray2: NS4168 mono class D audio power amplifier wI2S serial digital audio input & NCN output.
 Purple1: Speaker
+Lightgray1: Leftover speaker output
+
+------------------------------------------------------------------------------------------------------------
 
 UNKNOWN:
 Blue1: MMC or Gyro?
-Lightgray1: Mystery connector
 Gray1: MCC? 
 
+------------------------------------------------------------------------------------------------------------
 
+
+Notes:
+GPIO43/GPIO44 are also UART0 TX/RX, used for serial boot/logging, and GPIO0 is the boot-mode / strapping pin
+Each “Servo-x” connector is a 5-wire DC servo port (M+/M−, pot, 3V3, GND).
+Each motor channel uses 2 digital GPIOs (driver inputs) + 1 ADC GPIO (pot).
