@@ -1,0 +1,18 @@
+VERIFIED:
+
+COMPONENT                                                 INTERFACE/PIN
+Red1: ESP32S3                                             N/A
+Yellow1-4: TC118S Motor driver
+Pink1-10: RGB LEDs                                        GPIO 47
+Brown1: SMB buzzer (aka speaker)                          GPIO 38
+Green1: GPIO0,43,44,Ground and 3.3v                       GPIO0, GPIO43 ,GPIO44
+
+Dark Gray2: NS4168 mono class D audio power amplifier wI2S serial digital audio input & NCN output.
+Purple1: Speaker
+
+UNKNOWN:
+Blue1: MMC or Gyro?
+Lightgray1: Mystery connector
+Gray1: MCC? 
+
+
