@@ -11,12 +11,15 @@ Yellow1-4: TC118S Motor driver
             U12 is Motor Driver 3 for Servo-3.
             U14 is Motor Driver 4 for Servo-4.
 
-Pinout:
-        _________
-NC   1 |         | 8  OUTA
-INA  2 |  TC118S | 7  GND  
-INB  3 |         | 6  GND
-VDD  4 |_________| 5  OUTB
+Pinout TC118S:
+
+              ┌─────────────────────┐
+   NC     → 1 │ ●                 8 │ OUTA  → motor output
+   INA    → 2 │                   7 │ PGND  → ground (to plane)
+   INB    → 3 │                   6 │ AGND  → ground (to plane)
+   VDD    → 4 │                   5 │ OUTB  → motor output
+              └─────────────────────┘
+
 
 Motor drivers connect like this to ESP 
 
