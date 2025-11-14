@@ -25,21 +25,21 @@ Motor drivers connect like this to ESP
 
 U11 (servo1) INA(2) -> 19
              INB(3) -> 20
+             Servo Feedback -> GPIO17
 
-U12 (servo3) INA(2) -> 21
+U12 (servo4) INA(2) -> 21
              INB(3) -> 22
+             Servo Feedback -> GPIO4
 
 U13 (servo2) INA(2) -> 10
              INB(3) -> 11
+             Servo Feedback -> GPIO12
 
-U14 (servo4) INA(2) -> 8
+U14 (servo3) INA(2) -> 8
              INB(3) -> 9
+             Servo Feedback -> GPIO7
 
 
-Servo1 GPIO -> 17
-Servo2 GPIO -> 12
-Servo3 GPIO -> 7
-Servo4 GPIO -> 4
 
 ------------------------------------------------------------------------------------------------------------
 
