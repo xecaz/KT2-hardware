@@ -23,21 +23,21 @@ Pinout TC118S:
 
 Motor drivers connect like this to ESP 
 
-U11 (servo1) INA(2) -> 19
-             INB(3) -> 20
-             Servo Feedback -> GPIO17
+U11 (servo1) INA(2) -> ESP PIN 19           = IO11
+             INB(3) -> ESP PIN20            = IO12
+             Servo Feedback -> ESP PIN 17   = IO9
 
-U12 (servo4) INA(2) -> 21
-             INB(3) -> 22
-             Servo Feedback -> GPIO4
+U12 (servo4) INA(2) -> ESP PIN 21           = IO13
+             INB(3) -> ESP PIN 22           = IO14
+             Servo Feedback -> ESP PIN 4    = IO4
 
-U13 (servo2) INA(2) -> 10
-             INB(3) -> 11
-             Servo Feedback -> GPIO12
+U13 (servo2) INA(2) -> ESP PIN 10           = IO17
+             INB(3) -> ESP PIN 11           = IO18
+             Servo Feedback -> ESP PIN 12   = IO8
 
-U14 (servo3) INA(2) -> 8
-             INB(3) -> 9
-             Servo Feedback -> GPIO7
+U14 (servo3) INA(2) -> ESP PIN 8            = IO15
+             INB(3) -> ESP PIN 9            = IO16
+             Servo Feedback -> ESP PIN 7    = IO7
 
 
 
