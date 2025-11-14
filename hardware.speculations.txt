@@ -1,9 +1,15 @@
 VERIFIED:
 
-COMPONENT                                                 INTERFACE/PIN
-Red1: ESP32S3                                             N/A
+Red1: ESP32S3-WROOM1                                      N/A
 
 ------------------------------------------------------------------------------------------------------------
+  __   __    _____  _______  _____   _____    _____  
+ (__)_(__)  (_____)(__ _ __)(_____) (_____)  (_____) 
+(_) (_) (_)(_)   (_)  (_)  (_)   (_)(_)__(_)(_)___   
+(_) (_) (_)(_)   (_)  (_)  (_)   (_)(_____)   (___)_ 
+(_)     (_)(_)___(_)  (_)  (_)___(_)( ) ( )   ____(_)
+(_)     (_) (_____)   (_)   (_____) (_)  (_) (_____) 
+                                                     
 
 Yellow1-4: TC118S Motor driver
 U11 -> Servo1
@@ -23,31 +29,86 @@ Pinout TC118S:
 
 Motor drivers connect like this to ESP 
 
-U11 (servo1) INA(2) -> ESP PIN 19           = IO11
-             INB(3) -> ESP PIN20            = IO12
-             Servo Feedback -> ESP PIN 17   = IO9
+U11 (servo1) INA(2) -> ESP PIN 19           = GPIO11
+             INB(3) -> ESP PIN20            = GPIO12
+             Servo Feedback -> ESP PIN 17   = GPIO9
 
-U12 (servo4) INA(2) -> ESP PIN 21           = IO13
-             INB(3) -> ESP PIN 22           = IO14
-             Servo Feedback -> ESP PIN 4    = IO4
+U12 (servo4) INA(2) -> ESP PIN 21           = GPIO13
+             INB(3) -> ESP PIN 22           = GPIO14
+             Servo Feedback -> ESP PIN 4    = GPIO4
 
-U13 (servo2) INA(2) -> ESP PIN 10           = IO17
-             INB(3) -> ESP PIN 11           = IO18
-             Servo Feedback -> ESP PIN 12   = IO8
+U13 (servo2) INA(2) -> ESP PIN 10           = GPIO17
+             INB(3) -> ESP PIN 11           = GPIO18
+             Servo Feedback -> ESP PIN 12   = GPIO8
 
-U14 (servo3) INA(2) -> ESP PIN 8            = IO15
-             INB(3) -> ESP PIN 9            = IO16
-             Servo Feedback -> ESP PIN 7    = IO7
+U14 (servo3) INA(2) -> ESP PIN 8            = GPIO15
+             INB(3) -> ESP PIN 9            = GPIO16
+             Servo Feedback -> ESP PIN 7    = GPIO7
 
 
-
-------------------------------------------------------------------------------------------------------------
-
-Pink1-10: RGB LEDs                                        GPIO 47
+Each servo has a hall effect sensor that sends back ticks. I am guessing 10 per rotation.
 
 ------------------------------------------------------------------------------------------------------------
+
+                                                     
+ _       ______  _____    _____                      
+(_)     (______)(_____)  (_____)                     
+(_)     (_)__   (_)  (_)(_)___                       
+(_)     (____)  (_)  (_)  (___)_                     
+(_)____ (_)____ (_)__(_)  ____(_)                    
+(______)(______)(_____)  (_____)                     
+                                                     
+Pink1-10: RGB LEDs
+
+The LEDs are WS2812-style addressable RGB LEDs (10 of them).
+
+They’re driven through a single data pin; GPIO 47.
+
+WS2812 LEDs use GRB byte order, MicroPython normally uses the neopixel module, but this robots firmware exposes machine.bitstream, which can send the WS2812 timing 
+waveform directly.
+
+I hacked together a tiny buffer (bytearray) of 10 × 3 bytes and send it through bitstream to update the strip. Each LED is set by writing into the buffer at index 
+i * 3 (because 3 bytes per LED). That’s the whole system in one breath.
+
+
+Examples:
+
+from time import sleep
+--
+for i in range(10):
+    # turn all off
+    for j in range(10):
+        set_led(j, 0, 0, 0)
+
+    # light the selected pixel
+    set_led(i, 255, 0, 0)   # pure red
+    show()
+    sleep(0.2)
+--
+
+------------------------------------------------------------------------------------------------------------
+ _____   _     _  _______  _______  ______  _____    
+(_____) (_)   (_)(_______)(_______)(______)(_____)   
+(_)__(_)(_)   (_)    _(_)     _(_) (_)__   (_)__(_)  
+(_____) (_)   (_)  _(_)     _(_)   (____)  (_____)   
+(_)__(_)(_)___(_) (_)____  (_)____ (_)____ ( ) ( )   
+(_____)  (_____) (_______)(_______)(______)(_)  (_)  
+                                                     
+                                                    
 
 Brown1: SMB buzzer (aka speaker)                          GPIO 38
+
+--
+from machine import Pin, PWM
+pwm = PWM(Pin(38)); pwm.freq(1000); pwm.duty_u16(30000)
+--
+
+That plays a 1 kHz tone.
+
+To stop it:
+--
+pwm.deinit()
+--
 
 ------------------------------------------------------------------------------------------------------------
 
@@ -60,6 +121,25 @@ Purple1: Speaker
 Lightgray1: Leftover speaker output
 
 ------------------------------------------------------------------------------------------------------------
+
+
+                                                     
+  _____  _     _  _____    _____                     
+ (_____)(_)   (_)(_____)  (_____)                    
+(_)  ___ (_)_(_) (_)__(_)(_)   (_)                   
+(_) (___)  (_)   (_____) (_)   (_)                   
+(_)___(_)  (_)   ( ) ( ) (_)___(_)                   
+ (_____)   (_)   (_)  (_) (_____)                    
+                                                     
+                                                     
+                                                     
+  _____   ______  _     _   _____    _____   _____   
+ (_____) (______)(_)   (_) (_____)  (_____) (_____)  
+(_)___   (_)__   (__)_ (_)(_)___   (_)   (_)(_)__(_) 
+  (___)_ (____)  (_)(_)(_)  (___)_ (_)   (_)(_____)  
+  ____(_)(_)____ (_)  (__)  ____(_)(_)___(_)( ) ( )  
+ (_____) (______)(_)   (_) (_____)  (_____) (_)  (_) 
+                                                     
 
 UNKNOWN:
 Blue1: MMC or Gyro?
