@@ -6,10 +6,10 @@ Red1: ESP32S3                                             N/A
 ------------------------------------------------------------------------------------------------------------
 
 Yellow1-4: TC118S Motor driver
-            U11 is Motor Driver 1 for Servo-1.
-            U13 is Motor Driver 2 for Servo-2.
-            U12 is Motor Driver 3 for Servo-3.
-            U14 is Motor Driver 4 for Servo-4.
+U11 -> Servo1
+U12 -> Servo4
+U13 -> Servo2
+U14 -> Servo3
 
 Pinout TC118S:
 
