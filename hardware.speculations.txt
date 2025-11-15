@@ -1,6 +1,28 @@
-VERIFIED:
+U1:  ESP32S3-WROOM1
+     FCC ID: 2AC7Z-ESPS3WROOM1
+     IC: 21098-ESPS3WROOM1
+     CMIIT ID: 2022DP2890
+U2:  7218C33
+     DESC: Voltage regulator
+U3:  6206A
+     DESC: Voltage regulator
+U4:  NS4168 
+     DESC: Mono class D audio power amplifier wI2S serial digital audio input & NCN output.
+U5:
+U6:  1.4.986 FG481 2051
+     DESC: Frequa Microelectronics FG481 Blackbox, most likely the MCU
+U7:  L507 D1J1
+     DESC: MEMS microphone [Unconfirmed]
+U8:  BUZZER
+U9:  ETA9742
+     DESC: 3 A Switching Charger, 2.4 A Boost and 3 LED indicators for battery level, charge/discharge status in One ESOP8 with Single Inductor
+U10: 
+U11: TC118S Motor driver
+U12: TC118S Motor driver
+U13: TC118S Motor driver
+U14: TC118S Motor driver
 
-Red1: ESP32S3-WROOM1                                      N/A
+
 
 ------------------------------------------------------------------------------------------------------------
   __   __    _____  _______  _____   _____    _____  
