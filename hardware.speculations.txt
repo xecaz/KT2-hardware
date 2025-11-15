@@ -163,14 +163,11 @@ Lightgray1: Leftover speaker output
  (_____) (______)(_)   (_) (_____)  (_____) (_)  (_) 
                                                      
 
-UNKNOWN:
-Blue1: MMC or Gyro?
-Gray1: MCC? 
 
 ------------------------------------------------------------------------------------------------------------
 
 
-Notes:
+Notes / Guesses:
 GPIO43/GPIO44 are also UART0 TX/RX, used for serial boot/logging, and GPIO0 is the boot-mode / strapping pin
 Each “Servo-x” connector is a 5-wire DC servo port (M+/M−, pot, 3V3, GND).
 Each motor channel uses 2 digital GPIOs (driver inputs) + 1 ADC GPIO (pot).
