@@ -8,6 +8,11 @@ U3:  6206A
      DESC: Voltage regulator
 U4:  NS4168 
      DESC: Mono class D audio power amplifier wI2S serial digital audio input & NCN output.
+
+     Pin 4 goes back to GPIO 45
+     Pin 3 goes back to GPIO 0 
+     Pin 2 goes back to GPIO 42
+
 U5:
 U6:  1.4.986 FG481 2051
      DESC: Frequa Microelectronics FG481 Blackbox, most likely the MCU
