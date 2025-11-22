@@ -1,0 +1,45 @@
+
+The core key to getting MK2 to play digital audio is exact I2S timing and alignment
+
+* KT’s audio amp and codec expect a very specific I2S frame:
+* BCLK = GPIO 0, LRCLK = GPIO 42, SDOUT = GPIO 45
+* I2S mode: I2S.TX
+* Format: I2S.MONO
+* Bit depth: always 16-bit, so 8-bit audio had to be redecoded..
+* Sample rate: use whatever the WAV header reports.
+
+Most failures (white noise) came from bit misalignment — the amp was receiving data one or more bits off from LRCLK 
+boundaries. I fixed this by bit-shifting test sweeps and locking onto the one alignment that consistently produced 
+clean audio (shift=0, invert_lr=False).
+
+Volume scaling and 8-bit expansion
+
+The amp expects signed 16-bit PCM, but many WAVs are 8-bit unsigned (0–255).
+To translate correctly:
+s = (byte - 128) << 8      # convert to signed 16-bit centered at 0
+s = int(s * VOLUME)        # optional gain (1.5–2.0x works)
+
+Then clamp between -32768..32767.
+Without this, playback sounds like full-range static because the DAC interprets the unsigned bytes incorrectly.
+
+DMA and buffer stability
+
+Playback glitches or random failures came from starving the I2S DMA buffer.
+* I solved this by using an internal buffer (ibuf=4096)
+* Feeding aligned 512-byte blocks (multiples of 4)
+* Handling short writes (w = audio.write(); if not w: w=0) carefully
+
+That removed underruns, and playback became deterministic.
+
+The Reliable Formula (that worked, because fuck, a lot didn't)
+I2S(0,
+    sck=Pin(0),
+    ws=Pin(42),
+    sd=Pin(45),
+    mode=I2S.TX,
+    bits=16,
+    format=I2S.MONO,
+    rate=sample_rate,
+    ibuf=4096
+)
+
