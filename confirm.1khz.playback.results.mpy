@@ -1,0 +1,52 @@
+# === KT2 Tuned Audio Player ===
+# Using best timing config from autotune: shift=-1, invert_lr=True
+
+from machine import I2S, Pin
+import struct, time
+
+PIN_BCLK = 0
+PIN_LRCLK = 42
+PIN_SDOUT = 45
+WAV_PATH = "/my/1khz-8k-16bit-mono.wav"
+
+def read_wav_info(path):
+    with open(path, "rb") as f:
+        hdr = f.read(44)
+    nchan = struct.unpack("<H", hdr[22:24])[0]
+    sr = struct.unpack("<I", hdr[24:28])[0]
+    bits = struct.unpack("<H", hdr[34:36])[0]
+    print("Loaded WAV:", nchan, "ch", sr, "Hz", bits, "bit")
+    return nchan, sr, bits
+
+def play_wav_tuned(path):
+    nchan, sr, bits = read_wav_info(path)
+    audio = I2S(
+        0,
+        sck=Pin(PIN_BCLK),
+        ws=Pin(PIN_LRCLK),
+        sd=Pin(PIN_SDOUT),
+        mode=I2S.TX,
+        bits=bits,
+        format=I2S.MONO,
+        rate=sr,
+        ibuf=4096,
+    )
+    print("I2S configured (inverted LRCLK, -1 shift timing)")
+
+    mv = memoryview(bytearray(512))
+    with open(path, "rb") as f:
+        f.seek(44)
+        print("Playing...")
+        while True:
+            n = f.readinto(mv)
+            if not n:
+                break
+            # shift the frame by -1 byte to emulate phase correction
+            shifted = mv[1:n] + mv[:1]
+            audio.write(shifted)
+
+    print("Playback finished.")
+    audio.deinit()
+
+play_wav_tuned(WAV_PATH)
+
