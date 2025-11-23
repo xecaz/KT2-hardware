@@ -1,3 +1,4 @@
+A little writeup on how this was achieved:
 
 The core key to getting MK2 to play digital audio is exact I2S timing and alignment
 
@@ -42,4 +43,29 @@ I2S(0,
     rate=sample_rate,
     ibuf=4096
 )
+Process:
+* Play a 1khz tone from youtube on your laptop: https://www.youtube.com/watch?v=PyD9cMarVJk
+* Probe all GPIO pins for the microphone, by looking for something that sounds like the 1khz
+  https://github.com/xecaz/KT2-hardware/blob/main/scan.gpio.pins.for.mic.mpy
+  GPIO16 was isolated as the mic-input
+* Generate a local KT2 1khz sample:
+  https://github.com/xecaz/KT2-hardware/blob/main/generate.1khz.wave.mpy
+* Play original sample back while listening to the microphone, tweak parameters mentioned above and listen for best result
+  https://github.com/xecaz/KT2-hardware/blob/main/large.number.of.sound.tests.mpy
+* Then do the same with a pure 1mhz tone for more detailed tuning
+  https://github.com/xecaz/KT2-hardware/blob/main/using.1khz.sample.for.tuning.i2s.timing.mpy
+* Since i tried for 2 days to get here i wanted a little extra confirmation i was on the right track:
+  https://github.com/xecaz/KT2-hardware/blob/main/confirm.1khz.playback.results.mpy
+* I then wrote the final player (actually huge fucking shoutout to ChatGPT who did most of the heavy lifting).
+  https://github.com/xecaz/KT2-hardware/blob/main/first.working.digital.wave.played.on.kt2.mpy
+  this plays the sample found here: https://www.ibiblio.org/pub/multimedia/pc-sounds/48hrs04.wav (classing 48hours sample..)
 
+Getting it working ment reverse engineering the amp, tracing the pins to the ESP32, reverse engineering the mic, 
+virtually traching it to the ESP, getting to understand the amp and the is2 implemetation Xiaogui made.
+
+Last weeks i reached out to Wairliving (kickstarter), Xiaogui (initial developer) and the Kamerobotics staff, but
+to no avail. The amout of work these guys could have saved me by just answering a few of my questions cant be understated. 
+That's the main reason the finally working wav player above is obfuscated and missing all comments. If they want to use
+my player, feel free to contact me and id be happy to sell them my code ;)
+
+xecaz out.
