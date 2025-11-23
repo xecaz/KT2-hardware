@@ -1,3 +1,22 @@
+# Full digital audio output with the KT2 - a timing nightmare.
+
+During the board inspection of the KT2 a speaker could be found. Seeing the robot made a beep when it started up that
+made sense, however as i started mapping out all componenst on the board, a buzzer was also found. 
+I restarted it a few times over and over with my head pressed to the speaker and the buzzer. The sound came from the
+buzzer. I reverse engineered the buzzer quite fast after this and documented it here:
+https://github.com/xecaz/KT2-mpython/blob/main/buzzer.example.txt
+and we even made it play a little tune:
+https://github.com/xecaz/KT2-mpython/blob/main/titanic.mpy
+
+However, none of that sound came out on the speaker.
+
+5t3v3nk3 also found a JST header on the board we had no clue what it was going to.
+After inspecting some early robot prototypes on Kickstarter, we could clearly see that header was ment for the speaker.
+
+During further inspection of the board i noticed a chip on located on U4, marked NS4168 which turns out to be a class-D 
+Amplifier that can put out 2.5w. Using a SOT8 clamp i used a multimeter to trace it back to the ESP32-S3 on pins 
+GPIO45/0/42. This was the start of a weeks work to reverse engineer the amp on the KT2
+ 
 A little writeup on how this was achieved:
 
 The core key to getting MK2 to play digital audio is exact I2S timing and alignment
@@ -68,4 +87,8 @@ to no avail. The amout of work these guys could have saved me by just answering 
 That's the main reason the finally working wav player above is obfuscated and missing all comments. If they want to use
 my player, feel free to contact me and id be happy to sell them my code ;)
 
-xecaz out.
+Another shoutout to 5t3v3nk3 who kept motivating me to dig further and also produced theories about what might be going
+on.
+
+
+// xecaz out.
