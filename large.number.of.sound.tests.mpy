@@ -1,0 +1,338 @@
+# KT2 / ESP32-S3 I2S Auto-Tune with Mic Feedback
+# Plays short segments with many I2S timing variants and uses GPIO16 mic
+# to score audio quality (RMS, 1 kHz Goertzel magnitude, clipping, etc.).
+#
+# Pins (from your confirmed mapping):
+#   BCLK = GPIO0, LRCLK = GPIO42, SDOUT = GPIO45
+#
+# WAV expected: 8 kHz, 16-bit, mono at /my/8khz-16bit-mono.wav
+
+from machine import I2S, Pin, ADC
+import ujson as json
+import struct, time, math, os
+
+# ---------- CONFIG ----------
+WAV_PATH = "/my/8khz-16bit-mono.wav"
+PIN_BCLK = 0
+PIN_LRCLK = 42
+PIN_SDOUT = 45
+
+# playback + capture timing
+PLAY_MS = 350          # ~0.35 s of audio per variant
+CAPTURE_SAMPLES = 256  # mic samples per variant
+CAPTURE_DELAY_MS = 1   # ~1 kHz ADC sampling to match 1 kHz tone
+MIC_PIN = 16           # discovered workable ADC pin on your board
+LOG_PATH = "/my/audio_autotune.json"
+
+# I2S variant search space (this is a lot — but you asked for "all")
+BIT_SHIFTS = [-4,-3,-2,-1,0,1,2,3,4]
+INVERT_LRCLK = [False, True]
+BYTE_SWAP = [False, True]
+START_OFFSETS_US = [0, 5, 10, 20, 40]  # tiny start phase offsets
+DUMMY_WRITES = [0, 1]  # write one small dummy frame before real audio?
+
+# DMA/chunking
+NET_CHUNK = 1024
+DMA_FRAME = 512   # <= NET_CHUNK; must be 4-byte aligned
+IBUF = 4096
+
+# ---------- UTILS ----------
+def now_ms():
+    return time.ticks_ms()
+
+def sleep_ms(ms):
+    time.sleep_ms(ms)
+
+def goertzel_1khz(samples, fs_hz):
+    # classic Goertzel for a single target freq (1 kHz)
+    # samples: list of ints 0..4095 (12-bit-ish), we detrend by mean
+    N = len(samples)
+    if N == 0:
+        return 0.0
+    mean = sum(samples)/N
+    s_prev = 0.0
+    s_prev2 = 0.0
+    f = 1000.0
+    k = int(0.5 + (N * f) / fs_hz)
+    w = (2.0 * math.pi * k) / N
+    coeff = 2.0 * math.cos(w)
+    for x in samples:
+        s = x - mean + coeff * s_prev - s_prev2
+        s_prev2 = s_prev
+        s_prev = s
+    # magnitude
+    real = s_prev - s_prev2 * math.cos(w)
+    imag = s_prev2 * math.sin(w)
+    return math.sqrt(real*real + imag*imag) / N
+
+def mic_capture(pin_num=MIC_PIN, nsamples=CAPTURE_SAMPLES, dt_ms=CAPTURE_DELAY_MS):
+    # Try ADC; bail gracefully if not available
+    try:
+        adc = ADC(Pin(pin_num))
+    except Exception as e:
+        return {"ok": False, "err": "adc_init", "detail": str(e)}
+    # Best-effort attenuation; some ports expose constants, some don’t
+    try:
+        adc.atten(ADC.ATTN_11DB)
+    except:
+        pass
+
+    vals = []
+    # collect
+    start = now_ms()
+    for i in range(nsamples):
+        try:
+            v = adc.read()
+        except:
+            # If ADC read fails mid-run, mark and stop
+            return {"ok": False, "err": "adc_read"}
+        vals.append(v)
+        time.sleep_ms(dt_ms)
+    dur_ms = time.ticks_diff(now_ms(), start)
+
+    if not vals:
+        return {"ok": False, "err": "no_samples"}
+
+    # stats
+    N = len(vals)
+    mean = sum(vals)/N
+    rms = math.sqrt(sum((v-mean)*(v-mean) for v in vals)/N)
+    peak = max(vals) - min(vals)
+    clipped = (max(vals) >= 4095) or (min(vals) <= 0)
+
+    # We *assume* ~1 kHz sampling due to dt_ms=1 → fs ≈ 1000 Hz
+    gmag = goertzel_1khz(vals, fs_hz=max(1, int(1000/dt_ms)))
+
+    return {
+        "ok": True,
+        "samples": N,
+        "mean": mean,
+        "rms": rms,
+        "peak_span": peak,
+        "goertzel_1k": gmag,
+        "clipped": clipped,
+        "duration_ms": dur_ms,
+        "first_32": vals[:32],
+    }
+
+def read_wav_header(f):
+    hdr = f.read(44)
+    if hdr is None or len(hdr) != 44 or hdr[0:4] != b"RIFF" or hdr[8:12] != b"WAVE":
+        raise ValueError("Invalid WAV header")
+    num_channels = struct.unpack("<H", hdr[22:24])[0]
+    sample_rate  = struct.unpack("<I", hdr[24:28])[0]
+    bits         = struct.unpack("<H", hdr[34:36])[0]
+    data_id      = hdr[36:40]
+    data_len     = struct.unpack("<I", hdr[40:44])[0]
+    return num_channels, sample_rate, bits, data_id, data_len
+
+def open_wav(path):
+    f = open(path, "rb")
+    nc, sr, bits, did, dlen = read_wav_header(f)
+    if nc != 1 or bits not in (8, 16):
+        raise ValueError("Expecting mono 8- or 16-bit WAV")
+    return f, sr, bits, dlen
+
+def i2s_open(rate, bits, invert_ws=False, byte_swap=False):
+    # Note: MicroPython I2S doesn’t expose invert/swap flags explicitly;
+    # we emulate with software (byte swap) and WS phase by tiny start offsets.
+    audio = I2S(
+        0,
+        sck=Pin(PIN_BCLK),
+        ws=Pin(PIN_LRCLK),
+        sd=Pin(PIN_SDOUT),
+        mode=I2S.TX,
+        bits=bits,
+        format=I2S.MONO,   # mono DAC in NS4168
+        rate=rate,
+        ibuf=IBUF,
+    )
+    # Small settle
+    time.sleep_ms(20)
+    return audio
+
+def write_block(audio, buf):
+    off = 0
+    n = len(buf)
+    while off < n:
+        w = audio.write(buf[off:n])
+        if not w:
+            w = 0
+        off += w
+    return n
+
+def apply_shift_inplace(buf, shift_bits):
+    # buf is bytearray of little-endian 16-bit samples
+    if shift_bits == 0:
+        return
+    sh = shift_bits
+    # shift left (positive) or right (negative)
+    for i in range(0, len(buf) & ~1, 2):
+        s = struct.unpack_from("<h", buf, i)[0]
+        if sh > 0:
+            s = max(-32768, min(32767, s << sh))
+        else:
+            s = s >> (-sh)
+        struct.pack_into("<h", buf, i, s)
+
+def swap_bytes_inplace(buf):
+    # swap low/high byte on each 16-bit word
+    for i in range(0, len(buf) & ~1, 2):
+        b0 = buf[i]
+        buf[i] = buf[i+1]
+        buf[i+1] = b0
+
+def play_variant(f, sr, bits, data_len, variant, stats):
+    # variant: dict with keys shift, invert, swap, offset_us, dummy
+    # returns bytes_written, writes_count, underruns
+    audio = i2s_open(rate=sr, bits=bits,
+                     invert_ws=variant["invert"],
+                     byte_swap=variant["swap"])
+    try:
+        # optional dummy write (small silence) to “prime” DMA/I2S
+        if variant["dummy"]:
+            d = bytearray(256)  # silence
+            write_block(audio, d)
+
+        # tiny phase offset before real playback
+        if variant["offset_us"] > 0:
+            time.sleep_us(variant["offset_us"])
+
+        # stream for PLAY_MS from current file position
+        mv = memoryview(bytearray(DMA_FRAME))
+        started = now_ms()
+        bytes_written = 0
+        writes = 0
+        underruns = 0
+
+        while time.ticks_diff(now_ms(), started) < PLAY_MS:
+            chunk = f.readinto(mv)
+            if not chunk:
+                break
+            use = chunk & ~0x01  # even bytes for 16-bit
+            if use <= 0:
+                underruns += 1
+                continue
+
+            # shift
+            if bits == 16 and variant["shift"] != 0:
+                apply_shift_inplace(mv[:use], variant["shift"])
+
+            # swap
+            if bits == 16 and variant["swap"]:
+                swap_bytes_inplace(mv[:use])
+
+            # (We cannot truly invert LRCLK in MicroPython; the offset_us is our proxy)
+
+            write_block(audio, mv[:use])
+            bytes_written += use
+            writes += 1
+
+        stats["bytes"] = bytes_written
+        stats["writes"] = writes
+        stats["underruns"] = underruns
+
+    finally:
+        audio.deinit()
+
+def capture_mic_result():
+    res = mic_capture(pin_num=MIC_PIN, nsamples=CAPTURE_SAMPLES, dt_ms=CAPTURE_DELAY_MS)
+    return res
+
+def reset_wav_to_data(f):
+    # after header (44 bytes)
+    f.seek(44)
+
+def print_variant_header(vix, variant):
+    print("\n=== Variant #{:d}  shift={:+d}  invert={}  swap={}  offset={}us  dummy={} ==="
+          .format(vix, variant["shift"], variant["invert"], variant["swap"],
+                  variant["offset_us"], variant["dummy"]))
+
+def append_json(path, obj):
+    try:
+        with open(path, "a") as lf:
+            lf.write(json.dumps(obj) + "\n")
+    except Exception as e:
+        print("⚠️  Failed to append JSON:", e)
+
+# ---------- MAIN ----------
+def main():
+    print("Opening:", WAV_PATH)
+    try:
+        f, sr, bits, dlen = open_wav(WAV_PATH)
+    except Exception as e:
+        print("Error opening WAV:", e)
+        return
+
+    print("WAV: {}ch {}Hz {}bit".format(1, sr, bits))
+    print("Variants: {} shifts × {} invert × {} swap × {} offsets × {} dummy = {} total".format(
+        len(BIT_SHIFTS), len(INVERT_LRCLK), len(BYTE_SWAP),
+        len(START_OFFSETS_US), len(DUMMY_WRITES),
+        len(BIT_SHIFTS)*len(INVERT_LRCLK)*len(BYTE_SWAP)*len(START_OFFSETS_US)*len(DUMMY_WRITES)
+    ))
+    print("Logging JSON to:", LOG_PATH)
+
+    # Build variant list
+    variants = []
+    for sh in BIT_SHIFTS:
+        for inv in INVERT_LRCLK:
+            for swp in BYTE_SWAP:
+                for ofs in START_OFFSETS_US:
+                    for dum in DUMMY_WRITES:
+                        variants.append({
+                            "shift": sh,
+                            "invert": inv,
+                            "swap": swp,
+                            "offset_us": ofs,
+                            "dummy": dum,
+                        })
+
+    vix = 0
+    for var in variants:
+        vix += 1
+        print_variant_header(vix, var)
+
+        # start from beginning of data each time
+        reset_wav_to_data(f)
+
+        stats = {"bytes": 0, "writes": 0, "underruns": 0}
+        t0 = now_ms()
+        play_variant(f, sr, bits, dlen, var, stats)
+        t_play = time.ticks_diff(now_ms(), t0)
+        print("Playback stats: bytes={} writes={} underruns={} dur_ms={}"
+              .format(stats["bytes"], stats["writes"], stats["underruns"], t_play))
+
+        # Immediately listen with mic (GPIO16)
+        print("Mic capture...")
+        mic = capture_mic_result()
+        if not mic.get("ok"):
+            print("Mic error:", mic)
+        else:
+            print("Mic:", "samples={}".format(mic["samples"]),
+                  "mean={:.2f}".format(mic["mean"]),
+                  "rms={:.2f}".format(mic["rms"]),
+                  "peak_span={}".format(mic["peak_span"]),
+                  "goertzel_1k={:.4f}".format(mic["goertzel_1k"]),
+                  "clipped={}".format(mic["clipped"]))
+
+        # JSON line
+        rec = {
+            "ts_ms": now_ms(),
+            "variant_index": vix,
+            "variant": var,
+            "playback": stats,
+            "mic": mic,
+            "wav": {"sr": sr, "bits": bits, "path": WAV_PATH},
+        }
+        print("JSON:", json.dumps(rec))
+        append_json(LOG_PATH, rec)
+
+        # short rest between variants
+        sleep_ms(80)
+
+    f.close()
+    print("\nAll variants tested. Results appended to", LOG_PATH)
+    print("Pick the variants with the highest goertzel_1k, decent RMS (not zero), and not clipped.")
+
+main()
+
