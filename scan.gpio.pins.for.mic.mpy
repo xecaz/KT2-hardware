@@ -1,0 +1,25 @@
+from machine import Pin, ADC
+import time, math
+
+print("=== Focused Mic Candidate Analyzer (GPIO 16–18) ===")
+candidates = [16, 17, 18]
+duration = 3000  # 3s per pin
+
+for pin_num in candidates:
+    print(f"\n--- GPIO {pin_num} ---")
+    try:
+        adc = ADC(Pin(pin_num))
+        adc.atten(ADC.ATTN_11DB)
+        vals = []
+        t0 = time.ticks_ms()
+        while time.ticks_diff(time.ticks_ms(), t0) < duration:
+            vals.append(adc.read())
+            time.sleep(0.002)
+        mean = sum(vals) / len(vals)
+        rms = math.sqrt(sum((v - mean)**2 for v in vals) / len(vals))
+        peak = max(vals) - min(vals)
+        print(f"ADC mean={mean:.1f}, rms={rms:.1f}, peak={peak}")
+        print(f"First 20 samples: {vals[:20]}")
+    except Exception as e:
+        print(f"GPIO {pin_num}: ADC not available ({e})")
+
