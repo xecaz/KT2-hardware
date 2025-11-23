@@ -1,0 +1,55 @@
+from machine import I2S, Pin
+import struct, time
+
+_A = 0
+_B = 42
+_C = 45
+
+def _x(p):
+    with open(p, "rb") as f:
+        h = f.read(44)
+    a = struct.unpack("<H", h[22:24])[0]
+    b = struct.unpack("<I", h[24:28])[0]
+    c = struct.unpack("<H", h[34:36])[0]
+    print(f"{a}ch {b}Hz {c}b")
+    return a, b, c
+
+def _y(p="/my/48hrs04.wav"):
+    a, b, c = _x(p)
+    d = I2S.MONO if a == 1 else I2S.STEREO
+    e = I2S(
+        0,
+        sck=Pin(_A),
+        ws=Pin(_B),
+        sd=Pin(_C),
+        mode=I2S.TX,
+        bits=16,
+        format=d,
+        rate=b,
+        ibuf=4096,
+    )
+    print("Play")
+    f = bytearray(512)
+    g = bytearray(1024)
+    h = memoryview(f)
+    i = memoryview(g)
+    with open(p, "rb") as q:
+        q.seek(44)
+        while True:
+            r = q.readinto(h)
+            if not r:
+                break
+            if c == 8:
+                for j in range(r):
+                    s = (h[j] - 128) << 8
+                    i[2*j] = s & 0xFF
+                    i[2*j+1] = (s >> 8) & 0xFF
+                e.write(i[:2*r])
+            else:
+                e.write(h[:r])
+    print("Whos your man?!")
+    e.deinit()
+
+if __name__ == "__main__":
+    _y("/my/48hrs04.wav")
+
