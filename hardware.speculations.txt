@@ -15,11 +15,19 @@ U4:  NS4168
      Pin 4 goes back to GPIO 45
      Pin 3 goes back to GPIO 0 
      Pin 2 goes back to GPIO 42
-        
-          https://michiel.vanderwulp.be/domotica/Modules/SmartDisplay-ESP32-S3-4.0inch/SCT-NS4168.pdf
+     https://michiel.vanderwulp.be/domotica/Modules/SmartDisplay-ESP32-S3-4.0inch/SCT-NS4168.pdf
+     I2S(0,
+         sck=Pin(0),
+         ws=Pin(42),
+         sd=Pin(45),
+         mode=I2S.TX,
+         bits=16,
+         format=I2S.MONO,
+         rate=sample_rate,
+         ibuf=4096
+      )
 
-
-U5:
+U5:  OHH WHERE ARE THOU?!
 U6:  1.4.986 FG481 2051
      DESC: Frequa Microelectronics FG481 Blackbox, most likely the MCU
 U7:  L507 D1J1
@@ -28,7 +36,7 @@ U7:  L507 D1J1
 U8:  BUZZER
 U9:  ETA9742
      DESC: 3 A Switching Charger, 2.4 A Boost and 3 LED indicators for battery level, charge/discharge status in One ESOP8 with Single Inductor
-U10: 
+U10: This dude is also missing. $5 reward if someone can find it..
 U11: TC118S Motor driver
 U12: TC118S Motor driver
 U13: TC118S Motor driver
